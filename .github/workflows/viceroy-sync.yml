@@ -1,0 +1,32 @@
+name: Sync Viceroy Configs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sync Viceroy configs
+        env:
+          VICEROY_API_KEY: ${{ secrets.VICEROY_API_KEY }}
+          VICEROY_API_URL: ${{ vars.VICEROY_API_URL }}
+        run: |
+          response=$(curl -sf \
+            -H "Authorization: Bearer $VICEROY_API_KEY" \
+            -H "Content-Type: application/json" \
+            "$VICEROY_API_URL/api/v1/configs/export-all?format=claude-code")
+
+          echo "$response" | jq -r '.data.content' > CLAUDE.md
+
+      - name: Commit changes
+        run: |
+          git config user.name "viceroy-bot"
+          git config user.email "bot@viceroy.dev"
+          git add CLAUDE.md
+          git diff --staged --quiet || git commit -m "chore: sync Viceroy agent configs"
+          git push
